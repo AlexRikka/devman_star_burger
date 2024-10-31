@@ -1,5 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
+from django.utils.timezone import now
+from phonenumber_field.modelfields import PhoneNumberField
 
 
 class Restaurant(models.Model):
@@ -121,3 +123,56 @@ class RestaurantMenuItem(models.Model):
 
     def __str__(self):
         return f"{self.restaurant.name} - {self.product.name}"
+
+
+class Order(models.Model):
+    firstname = models.CharField(
+        max_length=100,
+        blank=False,
+        verbose_name='Имя',
+    )
+
+    lastname = models.CharField(
+        max_length=100,
+        blank=False,
+        verbose_name='Фамилия',
+    )
+
+    phonenumber = PhoneNumberField(blank=False,
+                                   verbose_name='Телефон')
+    address = models.CharField(blank=False,
+                               max_length=200,
+                               verbose_name='Адрес доставки')
+
+    created_at = models.DateTimeField(verbose_name="Дата и время создания",
+                                      auto_now_add=True,
+                                      db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Заказ'
+        verbose_name_plural = 'Заказы'
+
+    def __str__(self):
+        return f"{self.firstname} {self.lastname} {self.address} #{self.id}"
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order,
+                              on_delete=models.CASCADE,
+                              related_name='order_items',
+                              verbose_name='заказ')
+    product = models.ForeignKey(Product,
+                                on_delete=models.CASCADE,
+                                related_name='order_items',
+                                verbose_name='товар')
+    quantity = models.IntegerField(default=1,
+                                   verbose_name='количество')
+
+    class Meta:
+        verbose_name = 'Элемент заказа'
+        verbose_name_plural = 'Элементы заказа'
+        unique_together = ('order', 'product')
+
+    def __str__(self):
+        return f"{self.product.name}"
