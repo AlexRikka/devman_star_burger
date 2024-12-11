@@ -2,7 +2,9 @@ import json
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.templatetags.static import static
+from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 from .models import Product, Order, OrderItem
 
@@ -61,25 +63,48 @@ def product_list_api(request):
 
 @api_view(['POST'])
 def register_order(request):
+    err_content = None
     try:
         data = request.data
 
+        if 'products' not in data.keys():
+            err_content = {
+                'error': 'Products key is not presented'}
+            raise KeyError()
+
+        if type(data['products']) != list:
+            err_content = {
+                'error': 'Products key is not list'}
+            raise TypeError()
+
+        if not data['products']:
+            err_content = {
+                'error': 'Products list is empty'}
+            raise ValueError()
+
+        new_order = Order.objects.create(firstname=data['firstname'],
+                                         lastname=data['lastname'],
+                                         phonenumber=data['phonenumber'],
+                                         address=data['address'])
+
+        for product in data['products']:
+            order_item = get_object_or_404(
+                Product, id=product['product'])
+            OrderItem.objects.create(order=new_order,
+                                     product=order_item,
+                                     quantity=product['quantity'])
+
     except ValueError:
-        return JsonResponse({
-            'error': 'Error register request',
-        })
-    print(data)
-
-    new_order = Order.objects.create(firstname=data['firstname'],
-                                     lastname=data['lastname'],
-                                     phonenumber=data['phonenumber'],
-                                     address=data['address'])
-
-    for product in data['products']:
-        order_item = get_object_or_404(
-            Product, id=product['product'])
-        OrderItem.objects.create(order=new_order,
-                                 product=order_item,
-                                 quantity=product['quantity'])
+        err_content = {
+            'error': 'Error register request'} if not err_content else err_content
+        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
+    except KeyError:
+        err_content = {
+            'error': 'Invalid field set'} if not err_content else err_content
+        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
+    except TypeError:
+        err_content = {
+            'error': 'Invalid field type'} if not err_content else err_content
+        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
 
     return JsonResponse(data)
