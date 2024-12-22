@@ -1,4 +1,3 @@
-import json
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.templatetags.static import static
@@ -72,7 +71,7 @@ def register_order(request):
                 'error': 'Products key is not presented'}
             raise KeyError()
 
-        if type(data['products']) != list:
+        if not isinstance(data['products'], list):
             err_content = {
                 'error': 'Products key is not list'}
             raise TypeError()
