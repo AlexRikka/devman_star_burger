@@ -1,4 +1,6 @@
-from django.http import JsonResponse
+import phonenumbers
+
+from django.http import JsonResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.templatetags.static import static
 from rest_framework import status
@@ -63,47 +65,83 @@ def product_list_api(request):
 @api_view(['POST'])
 def register_order(request):
     err_content = None
+    product_id = None
     try:
         data = request.data
 
         if 'products' not in data.keys():
             err_content = {
-                'error': 'Products key is not presented'}
+                'error': 'products: Key is not presented.'}
             raise KeyError()
 
         if not isinstance(data['products'], list):
             err_content = {
-                'error': 'Products key is not list'}
+                'error': 'products: Key is not list.'}
             raise TypeError()
 
         if not data['products']:
             err_content = {
-                'error': 'Products list is empty'}
+                'error': 'products: List is empty.'}
             raise ValueError()
+
+        if not isinstance(data['firstname'], str):
+            err_content = {
+                'error': 'firstname: Not a valid string.'}
+            raise TypeError()
+
+        if not data['firstname']:
+            err_content = {
+                'error': 'firstname: Key is empty.'}
+            raise TypeError()
+
+        phonenumber_raw = data['phonenumber']
+        if not isinstance(phonenumber_raw, str) or not phonenumber_raw \
+                or not phonenumbers.parse(phonenumber_raw, 'RU'):
+            err_content = {
+                'error': 'phonenumber: Key is empty.'}
+            raise TypeError()
+        else:
+            phonenumber = phonenumbers.parse(phonenumber_raw, 'RU')
+            if not phonenumbers.is_valid_number(phonenumber):
+                err_content = {'error': 'phonenumber: Invalid format.'}
+                raise TypeError()
+            phonenumber = phonenumbers.format_number(
+                phonenumber, phonenumbers.PhoneNumberFormat.E164)
+
+        if not isinstance(data['address'], str) or not data['address']:
+            err_content = {
+                'error': 'address: Key is empty.'}
+            raise TypeError()
 
         new_order = Order.objects.create(firstname=data['firstname'],
                                          lastname=data['lastname'],
-                                         phonenumber=data['phonenumber'],
+                                         phonenumber=phonenumber,
                                          address=data['address'])
 
         for product in data['products']:
+            product_id = product['product']
             order_item = get_object_or_404(
-                Product, id=product['product'])
+                Product, id=product_id)
             OrderItem.objects.create(order=new_order,
                                      product=order_item,
                                      quantity=product['quantity'])
 
     except ValueError:
         err_content = {
-            'error': 'Error register request'} if not err_content else err_content
+            'error': 'Error register request.'} if not err_content else err_content
         return Response(err_content, status=status.HTTP_404_NOT_FOUND)
     except KeyError:
         err_content = {
-            'error': 'Invalid field set'} if not err_content else err_content
+            'error': 'Invalid field set.'} if not err_content else err_content
         return Response(err_content, status=status.HTTP_404_NOT_FOUND)
     except TypeError:
         err_content = {
-            'error': 'Invalid field type'} if not err_content else err_content
+            'error': 'Invalid field type.'} if not err_content else err_content
+        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
+
+    except Http404:
+        err_content = {
+            'error': f'products: invalid id {product_id}'} if not err_content else err_content
         return Response(err_content, status=status.HTTP_404_NOT_FOUND)
 
     return JsonResponse(data)
