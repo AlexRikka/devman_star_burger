@@ -6,6 +6,8 @@ from django.templatetags.static import static
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.serializers import ValidationError
+from rest_framework.serializers import ModelSerializer, ListField
 
 from .models import Product, Order, OrderItem
 
@@ -62,60 +64,37 @@ def product_list_api(request):
     })
 
 
+class OrderSerializer(ModelSerializer):
+    products = ListField(allow_empty=False)
+
+    class Meta:
+        model = Order
+        fields = ['firstname', 'lastname', 'address', 'products']
+
+    def phonenumber_type(self, value):
+        if not phonenumbers.parse(value, 'RU'):
+            raise ValidationError('Wrong value')
+        phonenumber = phonenumbers.parse(value, 'RU')
+        if not phonenumbers.is_valid_number(phonenumber):
+            raise ValidationError('Wrong format')
+        phonenumber = phonenumbers.format_number(
+            phonenumber, phonenumbers.PhoneNumberFormat.E164)
+
+        return phonenumber
+
+
 @api_view(['POST'])
 def register_order(request):
     err_content = None
     product_id = None
+    data = request.data
+    serializer = OrderSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
+
     try:
-        data = request.data
-
-        if 'products' not in data.keys():
-            err_content = {
-                'error': 'products: Key is not presented.'}
-            raise KeyError()
-
-        if not isinstance(data['products'], list):
-            err_content = {
-                'error': 'products: Key is not list.'}
-            raise TypeError()
-
-        if not data['products']:
-            err_content = {
-                'error': 'products: List is empty.'}
-            raise ValueError()
-
-        if not isinstance(data['firstname'], str):
-            err_content = {
-                'error': 'firstname: Not a valid string.'}
-            raise TypeError()
-
-        if not data['firstname']:
-            err_content = {
-                'error': 'firstname: Key is empty.'}
-            raise TypeError()
-
-        phonenumber_raw = data['phonenumber']
-        if not isinstance(phonenumber_raw, str) or not phonenumber_raw \
-                or not phonenumbers.parse(phonenumber_raw, 'RU'):
-            err_content = {
-                'error': 'phonenumber: Key is empty.'}
-            raise TypeError()
-        else:
-            phonenumber = phonenumbers.parse(phonenumber_raw, 'RU')
-            if not phonenumbers.is_valid_number(phonenumber):
-                err_content = {'error': 'phonenumber: Invalid format.'}
-                raise TypeError()
-            phonenumber = phonenumbers.format_number(
-                phonenumber, phonenumbers.PhoneNumberFormat.E164)
-
-        if not isinstance(data['address'], str) or not data['address']:
-            err_content = {
-                'error': 'address: Key is empty.'}
-            raise TypeError()
-
         new_order = Order.objects.create(firstname=data['firstname'],
                                          lastname=data['lastname'],
-                                         phonenumber=phonenumber,
+                                         phonenumber=data['phonenumber'],
                                          address=data['address'])
 
         for product in data['products']:
@@ -126,22 +105,10 @@ def register_order(request):
                                      product=order_item,
                                      quantity=product['quantity'])
 
-    except ValueError:
-        err_content = {
-            'error': 'Error register request.'} if not err_content else err_content
-        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
-    except KeyError:
-        err_content = {
-            'error': 'Invalid field set.'} if not err_content else err_content
-        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
-    except TypeError:
-        err_content = {
-            'error': 'Invalid field type.'} if not err_content else err_content
-        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
-
     except Http404:
         err_content = {
-            'error': f'products: invalid id {product_id}'} if not err_content else err_content
+            'error': f'products: invalid id {product_id}'} \
+            if not err_content else err_content
         return Response(err_content, status=status.HTTP_404_NOT_FOUND)
 
     return JsonResponse(data)
