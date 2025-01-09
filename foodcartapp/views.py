@@ -1,15 +1,17 @@
 import phonenumbers
 
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.templatetags.static import static
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.parsers import JSONParser
 from rest_framework.serializers import ValidationError
 from rest_framework.serializers import ModelSerializer, ListField
 
 from .models import Product, Order, OrderItem
+#from .serializers import OrderSerializer
 
 
 def banners_list_api(request):
@@ -83,32 +85,68 @@ class OrderSerializer(ModelSerializer):
         return phonenumber
 
 
-@api_view(['POST'])
-def register_order(request):
-    err_content = None
-    product_id = None
-    data = request.data
-    serializer = OrderSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
+# @api_view(['POST'])
+# def register_order(request):
+#     err_content = None
+#     product_id = None
 
-    try:
-        new_order = Order.objects.create(firstname=data['firstname'],
-                                         lastname=data['lastname'],
-                                         phonenumber=data['phonenumber'],
-                                         address=data['address'])
+#     data = request.data
+#     serializer = OrderSerializer(data=data)
+#     serializer.is_valid(raise_exception=True)
 
-        for product in data['products']:
-            product_id = product['product']
-            order_item = get_object_or_404(
-                Product, id=product_id)
-            OrderItem.objects.create(order=new_order,
-                                     product=order_item,
-                                     quantity=product['quantity'])
+#     try:
+#         new_order = Order.objects.create(firstname=data['firstname'],
+#                                         lastname=data['lastname'],
+#                                         phonenumber=data['phonenumber'],
+#                                         address=data['address'])
 
-    except Http404:
-        err_content = {
-            'error': f'products: invalid id {product_id}'} \
-            if not err_content else err_content
-        return Response(err_content, status=status.HTTP_404_NOT_FOUND)
+#         for product in data['products']:
+#             product_id = product['product']
+#             order_item = get_object_or_404(
+#                 Product, id=product_id)
+#             OrderItem.objects.create(order=new_order,
+#                                     product=order_item,
+#                                     quantity=product['quantity'])
 
-    return JsonResponse(data)
+#     except Http404:
+#         err_content = {
+#             'error': f'products: invalid id {product_id}'} \
+#             if not err_content else err_content
+#         return Response(err_content, status=status.HTTP_404_NOT_FOUND)
+    
+#     return JsonResponse(data)
+
+
+def order_list_api(request):
+    if request.method == 'GET':
+        orders = Order.objects.all()
+        serializer = OrderSerializer(orders, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    elif request.method == 'POST':
+        data = JSONParser().parse(request)
+        serializer = OrderSerializer(data=data)
+        if serializer.is_valid():
+            #serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+
+
+def order_detail_api(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+
+    if request.method == 'GET':
+        serializer = OrderSerializer(order)
+        return JsonResponse(serializer.data)
+
+    elif request.method == 'PUT':
+        data = JSONParser().parse(request)
+        serializer = OrderSerializer(order, data=data)
+        if serializer.is_valid():
+            #serializer.save()
+            return JsonResponse(serializer.data)
+        return JsonResponse(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        order.delete()
+        return HttpResponse(status=204)
