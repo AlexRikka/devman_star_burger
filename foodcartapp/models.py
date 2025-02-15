@@ -128,7 +128,7 @@ class RestaurantMenuItem(models.Model):
 class OrderQuerySet(models.QuerySet):
     def price(self):
         return self.annotate(price=Sum(F('order_items__quantity')
-                                       * F('order_items__product__price')))
+                                       * F('order_items__price_fixed')))
 
 
 class Order(models.Model):
@@ -176,6 +176,12 @@ class OrderItem(models.Model):
                                 verbose_name='товар')
     quantity = models.IntegerField(default=1,
                                    verbose_name='количество')
+    price_fixed = models.DecimalField(max_digits=8,
+                                      decimal_places=2,
+                                      blank=False,
+                                      default=0,
+                                      verbose_name='цена товара в заказе',
+                                      validators=[MinValueValidator(0)])
 
     class Meta:
         verbose_name = 'Элемент заказа'

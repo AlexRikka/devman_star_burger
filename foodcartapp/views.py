@@ -110,11 +110,12 @@ def register_order(request):
 
         for product in serializer.validated_data['products']:
             product_id = product['product']
-            order_item = get_object_or_404(
+            product_item = get_object_or_404(
                 Product, id=product_id)
             OrderItem.objects.create(order=new_order,
-                                     product=order_item,
-                                     quantity=product['quantity'])
+                                     product=product_item,
+                                     quantity=product['quantity'],
+                                     price_fixed=product_item.price)
 
     except Http404:
         err_content = {
