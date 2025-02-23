@@ -94,7 +94,7 @@ def view_restaurants(request):
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
-    orders = list(Order.objects.price().order_by('-created_at'))
+    orders = list(Order.objects.exclude(status='end').price().order_by('-created_at'))
 
     return render(request, template_name='order_items.html', context={
         'order_items': orders

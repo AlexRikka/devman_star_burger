@@ -132,6 +132,13 @@ class OrderQuerySet(models.QuerySet):
 
 
 class Order(models.Model):
+    STATUS_CHOICES = [
+        ('proc', 'В обработке'),
+        ('cook', 'Готовится'),
+        ('dlvr', 'Передан в доставку'),
+        ('end', 'Завершен'),
+    ]
+
     firstname = models.CharField(
         max_length=100,
         blank=False,
@@ -154,12 +161,18 @@ class Order(models.Model):
                                       auto_now_add=True,
                                       db_index=True)
 
+    status = models.CharField(max_length=4,
+                              choices=STATUS_CHOICES)
+
     objects = OrderQuerySet.as_manager()
 
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'Заказ'
         verbose_name_plural = 'Заказы'
+        indexes = [
+            models.Index(fields=['status']),
+        ]
 
     def __str__(self):
         return f"{self.firstname} {self.lastname} {self.address} #{self.id}"
