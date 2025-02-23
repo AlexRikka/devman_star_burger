@@ -108,7 +108,8 @@ def register_order(request):
             firstname=serializer.validated_data['firstname'],
             lastname=serializer.validated_data['lastname'],
             phonenumber=serializer.validated_data['phonenumber'],
-            address=serializer.validated_data['address'])
+            address=serializer.validated_data['address'],
+            status='proc')
 
         for product in serializer.validated_data['products']:
             product_id = product['product']
