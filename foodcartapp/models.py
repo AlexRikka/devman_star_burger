@@ -153,6 +153,7 @@ class Order(models.Model):
 
     phonenumber = PhoneNumberField(blank=False,
                                    verbose_name='Телефон')
+
     address = models.CharField(blank=False,
                                max_length=200,
                                verbose_name='Адрес доставки')
@@ -160,6 +161,14 @@ class Order(models.Model):
     created_at = models.DateTimeField(verbose_name="Дата и время создания",
                                       auto_now_add=True,
                                       db_index=True)
+
+    called_at = models.DateTimeField(verbose_name="Дата и время звонка",
+                                     null=True,
+                                     blank=True)
+
+    delivered_at = models.DateTimeField(verbose_name="Дата и время доставки",
+                                        null=True,
+                                        blank=True)
 
     status = models.CharField(max_length=4,
                               choices=STATUS_CHOICES,
