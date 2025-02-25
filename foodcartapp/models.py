@@ -139,6 +139,11 @@ class Order(models.Model):
         ('end', 'Завершен'),
     ]
 
+    PAYMENT_CHOICES = [
+        ('epay', 'Электронно'),
+        ('cash', 'Наличностью'),
+    ]
+
     firstname = models.CharField(
         max_length=100,
         blank=False,
@@ -178,6 +183,11 @@ class Order(models.Model):
                                default='',
                                verbose_name='Комментарий')
 
+    payment_type = models.CharField(max_length=4,
+                                    default='cash',
+                                    choices=PAYMENT_CHOICES,
+                                    verbose_name='Способ оплаты')
+
     objects = OrderQuerySet.as_manager()
 
     class Meta:
@@ -185,7 +195,7 @@ class Order(models.Model):
         verbose_name = 'Заказ'
         verbose_name_plural = 'Заказы'
         indexes = [
-            models.Index(fields=['status']),
+            models.Index(fields=['status', 'payment_type']),
         ]
 
     def __str__(self):
