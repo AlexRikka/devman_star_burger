@@ -37,6 +37,9 @@ class ProductQuerySet(models.QuerySet):
         )
         return self.filter(pk__in=products)
 
+    def available_restaurants(self):
+        return self.menu_items.filter(availability=True).restaurant.all()
+
 
 class ProductCategory(models.Model):
     name = models.CharField(
@@ -187,6 +190,14 @@ class Order(models.Model):
                                     default='cash',
                                     choices=PAYMENT_CHOICES,
                                     verbose_name='Способ оплаты')
+
+    restaurant = models.ForeignKey(Restaurant,
+                                   blank=True,
+                                   null=True,
+                                   related_name='order',
+                                   verbose_name="Ресторан",
+                                   on_delete=models.SET_NULL,
+                                   )
 
     objects = OrderQuerySet.as_manager()
 

@@ -94,8 +94,53 @@ def view_restaurants(request):
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
-    orders = list(Order.objects.exclude(status='end').price().order_by('-created_at'))
+    products = Product.objects.available().prefetch_related('menu_items')
+    orders = Order.objects.exclude(
+        status='end').price().prefetch_related('order_items').order_by('-status')   #('-created_at')
+
+    orders_with_restaurant_availability = []
+
+    for order in orders:
+        if order.status == 'proc':
+            order_products_raw = [
+                item.product.id for item in order.order_items.all()]
+            order_products = list(products.filter(
+                pk__in=order_products_raw).all())
+
+            products_with_restaurants = []
+            for product in order_products:
+                restaurant_ids = [
+                    item.restaurant_id for item in product.menu_items.all()]
+
+                products_with_restaurants.append({
+                    'product': product,
+                    'restaurant_ids': restaurant_ids
+                })
+
+            if products_with_restaurants:
+                common_restaurant_ids = products_with_restaurants[0]['restaurant_ids']
+                for i in range(1, len(products_with_restaurants)):
+                    common_restaurant_ids = [id for id in common_restaurant_ids[i]
+                                             ['restaurant_ids'] if id in common_restaurant_ids[i-1]['restaurant_ids']]
+
+                orders_with_restaurant_availability.append({
+                    'order': order,
+                    'restaurants': list(Restaurant.objects.filter(id__in=common_restaurant_ids).all()),
+                    'proc': order.status == 'proc'
+                })
+            else:
+                orders_with_restaurant_availability.append({
+                    'order': order,
+                    'restaurants': None,
+                    'proc': True
+                })
+        else:
+            orders_with_restaurant_availability.append({
+                'order': order,
+                'restaurants': order.restaurant,
+                'proc': False
+            })
 
     return render(request, template_name='order_items.html', context={
-        'order_items': orders
+        'order_items': orders_with_restaurant_availability
     })
