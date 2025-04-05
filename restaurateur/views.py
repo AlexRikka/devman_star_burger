@@ -6,9 +6,14 @@ from django.contrib.auth.decorators import user_passes_test
 
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
-
+from dotenv import load_dotenv
+from geopy import distance
+import os
+import requests
 
 from foodcartapp.models import Product, Restaurant, Order
+
+load_dotenv()
 
 
 class Login(forms.Form):
@@ -92,11 +97,44 @@ def view_restaurants(request):
     })
 
 
+def fetch_coordinates(apikey, address):
+    base_url = "https://geocode-maps.yandex.ru/1.x"
+    response = requests.get(base_url, params={
+        "geocode": address,
+        "apikey": apikey,
+        "format": "json",
+    })
+    response.raise_for_status()
+    found_places = response.json(
+    )['response']['GeoObjectCollection']['featureMember']
+
+    if not found_places:
+        return None
+
+    most_relevant = found_places[0]
+    lon, lat = most_relevant['GeoObject']['Point']['pos'].split(" ")
+    return lon, lat
+
+
+def get_distance(addressA, addressB):
+    apikey = os.environ['YANDEX_GEO_API']
+    try:
+        coordsA = fetch_coordinates(apikey, addressA)
+        coordsB = fetch_coordinates(apikey, addressB)
+    except requests.HTTPError:
+        coordsA, coordsB = None, None
+    if coordsA and coordsB:
+        return round(distance.distance(coordsA, coordsB).km, 3)
+
+    return None
+
+
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
     products = Product.objects.available().prefetch_related('menu_items')
     orders = Order.objects.exclude(
-        status='end').price().prefetch_related('order_items').order_by('-status')   #('-created_at')
+        status='end').price().prefetch_related('order_items').order_by('-status')
+    restaurants = Restaurant.objects.all()
 
     orders_with_restaurant_availability = []
 
@@ -123,9 +161,25 @@ def view_orders(request):
                     common_restaurant_ids = [id for id in common_restaurant_ids[i]
                                              ['restaurant_ids'] if id in common_restaurant_ids[i-1]['restaurant_ids']]
 
+                restaurants_with_km = {}
+                restaurants_no_km = []
+                for id in common_restaurant_ids:
+                    restaurant = restaurants.filter(id=id).get()
+                    dist = get_distance(order.address, restaurant.address)
+                    if dist:
+                        restaurants_with_km[dist] = restaurant.name
+                    else:
+                        restaurants_no_km.append(restaurant.name)
+
+                km_sorted = sorted(restaurants_with_km)
+                restaurants_with_km_sorted = [
+                    restaurants_with_km[key] + " - " + str(key) + " км" for key in km_sorted]
+                restaurants_no_km_sorted = [
+                    name + " - ? км" for name in restaurants_no_km]
+
                 orders_with_restaurant_availability.append({
                     'order': order,
-                    'restaurants': list(Restaurant.objects.filter(id__in=common_restaurant_ids).all()),
+                    'restaurants': restaurants_with_km_sorted + restaurants_no_km_sorted,
                     'proc': order.status == 'proc'
                 })
             else:
@@ -137,7 +191,7 @@ def view_orders(request):
         else:
             orders_with_restaurant_availability.append({
                 'order': order,
-                'restaurants': order.restaurant,
+                'restaurants': order.restaurant.name,
                 'proc': False
             })
 
