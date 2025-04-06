@@ -10,8 +10,10 @@ from dotenv import load_dotenv
 from geopy import distance
 import os
 import requests
+import datetime
 
 from foodcartapp.models import Product, Restaurant, Order
+from places.models import Place
 
 load_dotenv()
 
@@ -97,6 +99,19 @@ def view_restaurants(request):
     })
 
 
+def save_coordinates(address, coords, place=None):
+    if place:
+        place.update(lon=coords[0],
+                     lat=coords[1],
+                     last_updated_at=datetime.date.today())
+    else:
+        Place.objects.create(name=address,
+                             address=address,
+                             lon=coords[0],
+                             lat=coords[1],
+                             last_updated_at=datetime.date.today())
+
+
 def fetch_coordinates(apikey, address):
     base_url = "https://geocode-maps.yandex.ru/1.x"
     response = requests.get(base_url, params={
@@ -116,17 +131,40 @@ def fetch_coordinates(apikey, address):
     return lon, lat
 
 
-def get_distance(addressA, addressB):
+def get_coordinates(address):
     apikey = os.environ['YANDEX_GEO_API']
+    coords = None
     try:
-        coordsA = fetch_coordinates(apikey, addressA)
-        coordsB = fetch_coordinates(apikey, addressB)
+        coords = fetch_coordinates(apikey, address)
     except requests.HTTPError:
-        coordsA, coordsB = None, None
-    if coordsA and coordsB:
-        return round(distance.distance(coordsA, coordsB).km, 3)
+        coords = None
 
-    return None
+    return coords
+
+
+def get_distance(addressA, addressB):
+    placeA = Place.objects.filter(address=addressA).first()
+    placeB = Place.objects.filter(address=addressB).first()
+    dist = None
+
+    if placeA:
+        coordsA = placeA.lon, placeA.lat
+    else:
+        coordsA = get_coordinates(addressA)
+        if coordsA:
+            save_coordinates(addressA, coordsA)
+
+    if placeB:
+        coordsB = placeB.lon, placeB.lat
+    else:
+        coordsB = get_coordinates(addressB)
+        if coordsB:
+            save_coordinates(addressB, coordsB)
+
+    if coordsA and coordsB:
+        dist = round(distance.distance(coordsA, coordsB).km, 3)
+
+    return dist
 
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
@@ -139,60 +177,56 @@ def view_orders(request):
     orders_with_restaurant_availability = []
 
     for order in orders:
-        if order.status == 'proc':
-            order_products_raw = [
-                item.product.id for item in order.order_items.all()]
-            order_products = list(products.filter(
-                pk__in=order_products_raw).all())
-
-            products_with_restaurants = []
-            for product in order_products:
-                restaurant_ids = [
-                    item.restaurant_id for item in product.menu_items.all()]
-
-                products_with_restaurants.append({
-                    'product': product,
-                    'restaurant_ids': restaurant_ids
-                })
-
-            if products_with_restaurants:
-                common_restaurant_ids = products_with_restaurants[0]['restaurant_ids']
-                for i in range(1, len(products_with_restaurants)):
-                    common_restaurant_ids = [id for id in common_restaurant_ids[i]
-                                             ['restaurant_ids'] if id in common_restaurant_ids[i-1]['restaurant_ids']]
-
-                restaurants_with_km = {}
-                restaurants_no_km = []
-                for id in common_restaurant_ids:
-                    restaurant = restaurants.filter(id=id).get()
-                    dist = get_distance(order.address, restaurant.address)
-                    if dist:
-                        restaurants_with_km[dist] = restaurant.name
-                    else:
-                        restaurants_no_km.append(restaurant.name)
-
-                km_sorted = sorted(restaurants_with_km)
-                restaurants_with_km_sorted = [
-                    restaurants_with_km[key] + " - " + str(key) + " км" for key in km_sorted]
-                restaurants_no_km_sorted = [
-                    name + " - ? км" for name in restaurants_no_km]
-
-                orders_with_restaurant_availability.append({
-                    'order': order,
-                    'restaurants': restaurants_with_km_sorted + restaurants_no_km_sorted,
-                    'proc': order.status == 'proc'
-                })
-            else:
-                orders_with_restaurant_availability.append({
-                    'order': order,
-                    'restaurants': None,
-                    'proc': True
-                })
-        else:
+        if order.status != 'proc':
             orders_with_restaurant_availability.append({
                 'order': order,
                 'restaurants': order.restaurant.name,
                 'proc': False
+            })
+            continue
+
+        order_products_raw = [
+            item.product.id for item in order.order_items.all()]
+        order_products = list(products.filter(
+            pk__in=order_products_raw).all())
+
+        products_with_restaurants = []
+        for product in order_products:
+            restaurant_ids = [
+                item.restaurant_id for item in product.menu_items.all()]
+
+            products_with_restaurants.append({
+                'product': product,
+                'restaurant_ids': restaurant_ids
+            })
+
+        if products_with_restaurants:
+            common_restaurant_ids = products_with_restaurants[0]['restaurant_ids']
+            for i in range(1, len(products_with_restaurants)):
+                common_restaurant_ids = [id for id in common_restaurant_ids[i]
+                                         ['restaurant_ids'] if id in common_restaurant_ids[i-1]['restaurant_ids']]
+
+            restaurants_with_km = {}
+            restaurants_no_km = []
+            for id in common_restaurant_ids:
+                restaurant = restaurants.filter(id=id).get()
+                dist = get_distance(order.address, restaurant.address)
+                print(dist)
+                if dist:
+                    restaurants_with_km[dist] = restaurant.name
+                else:
+                    restaurants_no_km.append(restaurant.name)
+
+            km_sorted = sorted(restaurants_with_km)
+            restaurants_with_km_sorted = [
+                restaurants_with_km[key] + " - " + str(key) + " км" for key in km_sorted]
+            restaurants_no_km_sorted = [
+                name + " - ? км" for name in restaurants_no_km]
+
+            orders_with_restaurant_availability.append({
+                'order': order,
+                'restaurants': restaurants_with_km_sorted + restaurants_no_km_sorted,
+                'proc': True
             })
 
     return render(request, template_name='order_items.html', context={

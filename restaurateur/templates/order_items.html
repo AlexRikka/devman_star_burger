@@ -34,6 +34,7 @@
         <td>{{item.order.firstname}} {{item.lastname}}</td>
         <td>{{item.order.phonenumber}}</td>
         <td>{{item.order.address}}</td>
+        <td>{{item.order.comment}}</td>
         <td>
           {% if item.restaurants %}
             {% if item.proc %}
@@ -52,7 +53,6 @@
             Ошибка определения координат
           {% endif %}
         </td>
-        <td>{{item.order.address}}</td>
         <td>
           <a href="{% url 'admin:foodcartapp_order_change' item.order.id %}?next={{ request.path|urlencode }}">Редактировать</a>
         </td>
