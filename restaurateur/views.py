@@ -175,7 +175,7 @@ def view_orders(request):
     orders_with_restaurant_availability = []
 
     for order in orders:
-        if order.status != 'proc':
+        if order.status != 'proc' and order.status:
             orders_with_restaurant_availability.append({
                 'order': order,
                 'restaurants': order.restaurant.name,
