@@ -12,6 +12,7 @@ from rest_framework.serializers import ModelSerializer, Serializer
 from rest_framework.serializers import ListField, IntegerField, CharField
 
 from .models import Product, Order, OrderItem
+from .serializers import OrderSerializer
 
 
 def banners_list_api(request):
@@ -64,33 +65,6 @@ def product_list_api(request):
         'ensure_ascii': False,
         'indent': 4,
     })
-
-
-class ProductsSerializer(Serializer):
-    product = IntegerField()
-    quantity = IntegerField()
-
-
-class OrderSerializer(ModelSerializer):
-    products = ListField(child=ProductsSerializer(),
-                         allow_empty=False, write_only=True)
-    phonenumber = CharField()
-
-    class Meta:
-        model = Order
-        fields = ['id', 'firstname', 'lastname',
-                  'address', 'phonenumber', 'products']
-
-    def validate_phonenumber(self, value):
-        if not phonenumbers.parse(value, 'RU'):
-            raise ValidationError('Wrong value')
-        phonenumber = phonenumbers.parse(value, 'RU')
-        if not phonenumbers.is_valid_number(phonenumber):
-            raise ValidationError('Wrong format')
-        phonenumber_formatted = phonenumbers.format_number(
-            phonenumber, phonenumbers.PhoneNumberFormat.E164)
-
-        return phonenumber_formatted
 
 
 @transaction.atomic
