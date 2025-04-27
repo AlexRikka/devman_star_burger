@@ -183,7 +183,7 @@ class Order(models.Model):
                               verbose_name='Статус')
 
     comment = models.TextField(blank=True,
-                               default='',
+                               null=True,
                                verbose_name='Комментарий')
 
     payment_type = models.CharField(max_length=4,
@@ -222,12 +222,9 @@ class OrderItem(models.Model):
                                 on_delete=models.CASCADE,
                                 related_name='order_items',
                                 verbose_name='товар')
-    quantity = models.IntegerField(default=1,
-                                   verbose_name='количество')
+    quantity = models.IntegerField(verbose_name='количество')
     price_fixed = models.DecimalField(max_digits=8,
                                       decimal_places=2,
-                                      blank=False,
-                                      default=0,
                                       verbose_name='цена товара в заказе',
                                       validators=[MinValueValidator(0)])
 
