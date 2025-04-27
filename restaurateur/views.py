@@ -151,15 +151,13 @@ def get_distance(addressA, addressB):
         coordsA = placeA.lon, placeA.lat
     else:
         coordsA = get_coordinates(addressA)
-        if coordsA:
-            save_coordinates(addressA, coordsA)
+        save_coordinates(addressA, coordsA)
 
     if placeB:
         coordsB = placeB.lon, placeB.lat
     else:
         coordsB = get_coordinates(addressB)
-        if coordsB:
-            save_coordinates(addressB, coordsB)
+        save_coordinates(addressB, coordsB)
 
     if coordsA and coordsB:
         dist = round(distance.distance(coordsA, coordsB).km, 3)
