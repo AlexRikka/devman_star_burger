@@ -78,21 +78,7 @@ def register_order(request):
     serializer.is_valid(raise_exception=True)
 
     try:
-        new_order = Order.objects.create(
-            firstname=serializer.validated_data['firstname'],
-            lastname=serializer.validated_data['lastname'],
-            phonenumber=serializer.validated_data['phonenumber'],
-            address=serializer.validated_data['address'],
-            status='proc')
-
-        for product in serializer.validated_data['products']:
-            product_id = product['product']
-            product_item = get_object_or_404(
-                Product, id=product_id)
-            OrderItem.objects.create(order=new_order,
-                                     product=product_item,
-                                     quantity=product['quantity'],
-                                     price_fixed=product_item.price)
+        new_order = serializer.save()
 
     except Http404:
         err_content = {
