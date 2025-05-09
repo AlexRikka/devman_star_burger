@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from phonenumber_field.modelfields import PhoneNumberField
 from rest_framework.serializers import ModelSerializer, Serializer, ValidationError
-from rest_framework.serializers import ListField, IntegerField
+from rest_framework.serializers import IntegerField
 
 
 from .models import Order, OrderItem, Product
@@ -18,8 +18,9 @@ class ProductsSerializer(Serializer):
 
 
 class OrderSerializer(ModelSerializer):
-    products = ListField(child=ProductsSerializer(),
-                         allow_empty=False, write_only=True)
+    products = ProductsSerializer(many=True,
+                                  write_only=True,
+                                  allow_empty=False)
     phonenumber = PhoneNumberField()
 
     class Meta:

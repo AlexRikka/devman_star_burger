@@ -34,7 +34,7 @@
         <td>{{item.order.firstname}} {{item.lastname}}</td>
         <td>{{item.order.phonenumber}}</td>
         <td>{{item.order.address}}</td>
-        <td>{{item.order.comment}}</td>
+        <td>{{item.order.comment|default_if_none:""}}</td>
         <td>
           {% if item.restaurants %}
             {% if item.proc %}
