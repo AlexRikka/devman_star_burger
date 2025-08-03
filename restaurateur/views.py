@@ -209,7 +209,7 @@ def view_orders(request):
             for id in common_restaurant_ids:
                 restaurant = restaurants.filter(id=id).get()
                 dist = get_distance(order.address, restaurant.address)
-                print(dist)
+                
                 if dist:
                     restaurants_with_km[dist] = restaurant.name
                 else:
